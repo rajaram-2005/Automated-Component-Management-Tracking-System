@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compound Management System - Login</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+</head>
+<body class="auth-body">
+<div class="auth-shell">
+    <div class="auth-brand">
+        <span class="eyebrow">AI + ML Enabled Inventory Intelligence</span>
+        <h1>Compound Management System</h1>
+        <p>Securely manage engineering components for EEE, ECE, and Mechanical domains with global sourcing analytics, NLP search, and predictive availability insights.</p>
+        <ul class="feature-list compact">
+            <li>Natural-language component discovery</li>
+            <li>Automated component classification</li>
+            <li>Forecast-driven replenishment insights</li>
+            <li>Responsive dashboard for global teams</li>
+        </ul>
+    </div>
+
+    <div class="auth-card">
+        <h2>Welcome back</h2>
+        <p class="muted">Sign in to access the engineering operations dashboard.</p>
+
+        <div class="alert success" th:if="${param.registered}">Registration successful. Please sign in.</div>
+        <div class="alert success" th:if="${param.logout}">You have been signed out.</div>
+        <div class="alert danger" th:if="${param.error}">Invalid username or password.</div>
+
+        <form th:action="@{/login}" method="post" class="auth-form">
+            <label>
+                Username
+                <input type="text" name="username" placeholder="Enter your username" required>
+            </label>
+            <label>
+                Password
+                <input type="password" name="password" placeholder="Enter your password" required>
+            </label>
+            <button type="submit" class="primary-btn">Sign In</button>
+        </form>
+
+        <div class="demo-credentials">
+            <strong>Demo accounts</strong>
+            <p><span>Admin:</span> admin / admin123</p>
+            <p><span>Engineer:</span> engineer / engineer123</p>
+        </div>
+
+        <p class="auth-link">New here? <a th:href="@{/register}">Create an engineer account</a></p>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compound Management System</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+</head>
+<body>
+<div class="app-shell">
+    <header class="topbar">
+        <div>
+            <span class="eyebrow">Authenticated Engineering Operations</span>
+            <h1>Compound Management System</h1>
+            <p>Global component intelligence for Electrical & Electronics, Electronics & Communication, and Mechanical Engineering.</p>
+        </div>
+        <div class="topbar-actions">
+            <div class="user-chip">Signed in as <strong th:text="${username}">engineer</strong></div>
+            <form th:action="@{/logout}" method="post">
+                <button type="submit" class="ghost-btn">Logout</button>
+            </form>
+        </div>
+    </header>
+
+    <section class="hero-grid">
+        <article class="hero-card accent">
+            <h2>AI & ML Features</h2>
+            <p>Use semantic search, rule-based automated classification, content-based recommendation, and predictive availability scoring to make sourcing faster and smarter.</p>
+            <div class="hero-tags">
+                <span>NLP Search</span>
+                <span>Demand Forecasting</span>
+                <span>Auto Classification</span>
+                <span>Recommendation Engine</span>
+            </div>
+        </article>
+        <article class="hero-card stat-card">
+            <span>Total Components</span>
+            <strong id="totalComponents">0</strong>
+            <small>Managed catalog entries</small>
+        </article>
+        <article class="hero-card stat-card">
+            <span>Total Units</span>
+            <strong id="totalUnits">0</strong>
+            <small>Available inventory units</small>
+        </article>
+        <article class="hero-card stat-card">
+            <span>Low Stock</span>
+            <strong id="lowStockComponents">0</strong>
+            <small>High-risk or critical items</small>
+        </article>
+        <article class="hero-card stat-card">
+            <span>Avg Availability</span>
+            <strong id="averageAvailability">0%</strong>
+            <small>Predicted fulfillment confidence</small>
+        </article>
+    </section>
+
+    <section class="search-panel panel">
+        <div class="panel-header">
+            <div>
+                <h2>Natural Language Search</h2>
+                <p>Search in plain language: component names, discipline, availability intent, quantities, and sourcing regions.</p>
+            </div>
+        </div>
+        <div class="search-row">
+            <input id="searchQuery" type="text" placeholder="e.g., show low stock ECE communication modules from Asia or find mechanical bearings with high availability">
+            <button id="searchBtn" class="primary-btn">Search</button>
+            <button id="resetBtn" class="secondary-btn" type="button">Reset</button>
+            <button id="aiRecommendBtn" class="ghost-btn" type="button">AI Recommend</button>
+        </div>
+        <div class="sample-query-row">
+            <button class="sample-query" data-query="show low stock ECE communication modules from Asia">Low-stock ECE from Asia</button>
+            <button class="sample-query" data-query="find mechanical bearings with high availability">Mechanical bearings with high availability</button>
+            <button class="sample-query" data-query="recommend power electronics for motor control">Recommend power electronics</button>
+        </div>
+        <p id="searchSummary" class="search-summary">Browse the live catalog or launch a semantic search.</p>
+    </section>
+
+    <section class="content-grid">
+        <aside class="left-rail">
+            <article class="panel form-panel">
+                <div class="panel-header">
+                    <div>
+                        <h2 id="formTitle">Register New Component</h2>
+                        <p>Add or update engineering components and let the AI classifier enrich discipline and category suggestions.</p>
+                    </div>
+                </div>
+                <form id="componentForm" class="component-form">
+                    <input type="hidden" id="componentId">
+                    <div class="form-grid two-column">
+                        <label>
+                            Component Code (optional)
+                            <input id="componentCode" type="text" placeholder="Auto-generated if empty">
+                        </label>
+                        <label>
+                            Component Name
+                            <input id="name" type="text" placeholder="e.g., LoRa SX1278 Transceiver Module" required>
+                        </label>
+                        <label>
+                            Discipline
+                            <select id="discipline">
+                                <option value="">Auto-detect with AI</option>
+                                <option value="EEE">EEE</option>
+                                <option value="ECE">ECE</option>
+                                <option value="MECHANICAL">Mechanical</option>
+                            </select>
+                        </label>
+                        <label>
+                            Category
+                            <input id="category" type="text" placeholder="e.g., Communication Modules">
+                        </label>
+                        <label>
+                            Sub-Category
+                            <input id="subCategory" type="text" placeholder="e.g., RF Telemetry">
+                        </label>
+                        <label>
+                            Region
+                            <select id="region" required>
+                                <option value="Asia-Pacific">Asia-Pacific</option>
+                                <option value="Europe">Europe</option>
+                                <option value="North America">North America</option>
+                                <option value="Middle East">Middle East</option>
+                                <option value="Africa">Africa</option>
+                                <option value="South America">South America</option>
+                                <option value="Global">Global</option>
+                            </select>
+                        </label>
+                        <label>
+                            Manufacturer
+                            <input id="manufacturer" type="text" placeholder="e.g., Infineon">
+                        </label>
+                        <label>
+                            Unit Price (USD)
+                            <input id="unitPrice" type="number" min="0" step="0.01" value="0" required>
+                        </label>
+                        <label>
+                            Quantity
+                            <input id="quantity" type="number" min="0" value="0" required>
+                        </label>
+                        <label>
+                            Minimum Stock
+                            <input id="minimumStockLevel" type="number" min="0" value="0" required>
+                        </label>
+                        <label>
+                            Monthly Demand
+                            <input id="monthlyDemand" type="number" min="0" step="0.1" value="0" required>
+                        </label>
+                        <label>
+                            Lead Time (days)
+                            <input id="leadTimeDays" type="number" min="0" value="0" required>
+                        </label>
+                    </div>
+                    <label>
+                        Specifications
+                        <textarea id="specifications" rows="4" placeholder="Describe voltage/current/size/material/protocol/specification details here"></textarea>
+                    </label>
+                    <div class="form-actions">
+                        <button type="submit" class="primary-btn" id="saveBtn">Save Component</button>
+                        <button type="button" class="secondary-btn" id="clearBtn">Clear</button>
+                        <button type="button" class="ghost-btn" id="classifyBtn">Preview AI Classification</button>
+                    </div>
+                </form>
+            </article>
+
+            <article class="panel ai-panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>AI Classification Preview</h2>
+                        <p>Automatic component categorization based on names, category hints, and technical specifications.</p>
+                    </div>
+                </div>
+                <div id="classificationResult" class="classification-result">
+                    <p class="muted">No prediction yet. Enter a component name and specifications, then click <strong>Preview AI Classification</strong>.</p>
+                </div>
+            </article>
+        </aside>
+
+        <main class="main-rail">
+            <article class="panel table-panel">
+                <div class="panel-header space-between">
+                    <div>
+                        <h2>Managed Components</h2>
+                        <p>CRUD-ready inventory for globally sourced EEE, ECE, and Mechanical parts.</p>
+                    </div>
+                    <div class="legend">
+                        <span class="risk-pill low">Low</span>
+                        <span class="risk-pill moderate">Moderate</span>
+                        <span class="risk-pill high">High</span>
+                        <span class="risk-pill critical">Critical</span>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Domain</th>
+                            <th>Category</th>
+                            <th>Region</th>
+                            <th>Stock</th>
+                            <th>Availability</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody id="componentTableBody"></tbody>
+                    </table>
+                </div>
+            </article>
+
+            <div class="lower-grid">
+                <article class="panel recommendation-panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2>AI Recommendations</h2>
+                            <p>Content-based recommendations surface complementary or resilient components.</p>
+                        </div>
+                    </div>
+                    <p id="recommendationSummary" class="search-summary">Select a component or ask for AI recommendations from a natural-language search.</p>
+                    <div id="recommendationList" class="card-stack"></div>
+                </article>
+
+                <article class="panel analytics-panel">
+                    <div class="panel-header">
+                        <div>
+                            <h2>Predictive Analytics</h2>
+                            <p>Availability scoring estimates stockout risk using quantity, monthly demand, and supplier lead times.</p>
+                        </div>
+                    </div>
+                    <div class="distribution-grid">
+                        <div>
+                            <h3>Domain Distribution</h3>
+                            <div id="domainDistribution" class="distribution-list"></div>
+                        </div>
+                        <div>
+                            <h3>Region Distribution</h3>
+                            <div id="regionDistribution" class="distribution-list"></div>
+                        </div>
+                    </div>
+                    <div class="analytics-columns">
+                        <div>
+                            <h3>At-Risk Components</h3>
+                            <div id="riskList" class="card-stack compact-stack"></div>
+                        </div>
+                        <div>
+                            <h3>Key Insights</h3>
+                            <ul id="analyticsInsights" class="insight-list"></ul>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </main>
+    </section>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>
