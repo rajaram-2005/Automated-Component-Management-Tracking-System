@@ -3,6 +3,21 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Java / Maven
+*.class
+*.jar
+*.war
+*.ear
+target/
+.mvn/
+
+# IDE / local app data
+.idea/
+.vscode/
+data/
+*.mv.db
+*.trace.db
+
 # User-specific files
 *.rsuser
 *.suo

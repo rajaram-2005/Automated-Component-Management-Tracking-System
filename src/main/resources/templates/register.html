@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compound Management System - Register</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+</head>
+<body class="auth-body">
+<div class="auth-shell">
+    <div class="auth-brand">
+        <span class="eyebrow">Global Engineering Catalog</span>
+        <h1>Create your workspace access</h1>
+        <p>Set up an authenticated account to manage component records, run intelligent recommendations, and monitor global supply risk from a single dashboard.</p>
+    </div>
+
+    <div class="auth-card">
+        <h2>Register</h2>
+        <p class="muted">Accounts are stored locally in the application database.</p>
+
+        <form th:action="@{/register}" th:object="${registerRequest}" method="post" class="auth-form">
+            <label>
+                Full Name
+                <input type="text" th:field="*{fullName}" placeholder="e.g., Priya Ramanathan" required>
+                <small class="field-error" th:if="${#fields.hasErrors('fullName')}" th:errors="*{fullName}"></small>
+            </label>
+
+            <label>
+                Username
+                <input type="text" th:field="*{username}" placeholder="Choose a username" required>
+                <small class="field-error" th:if="${#fields.hasErrors('username')}" th:errors="*{username}"></small>
+            </label>
+
+            <label>
+                Email
+                <input type="email" th:field="*{email}" placeholder="name@example.com" required>
+                <small class="field-error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></small>
+            </label>
+
+            <label>
+                Password
+                <input type="password" th:field="*{password}" placeholder="Minimum 8 characters" required>
+                <small class="field-error" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></small>
+            </label>
+
+            <label>
+                Confirm Password
+                <input type="password" th:field="*{confirmPassword}" placeholder="Re-enter password" required>
+                <small class="field-error" th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}"></small>
+            </label>
+
+            <button type="submit" class="primary-btn">Create Account</button>
+        </form>
+
+        <p class="auth-link">Already registered? <a th:href="@{/login}">Back to login</a></p>
+    </div>
+</div>
+</body>
+</html>
