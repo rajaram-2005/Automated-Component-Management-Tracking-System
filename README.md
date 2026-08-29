@@ -120,6 +120,28 @@ export DB_PASSWORD=compound
 mvn spring-boot:run
 ```
 
-## CI
+## Build & Test Verification
 
-A GitHub Actions workflow that builds, tests, and packages on every push / pull request to `master` or `main`, and builds a Docker image for those branches, is documented in [`docs/github-actions-ci.md`](docs/github-actions-ci.md). It is intentionally not shipped as a live `.github/workflows/ci.yml` here because the automation token used to publish this branch lacks the GitHub **Workflows** permission; add the file with the contents from that doc (and a token with `workflows: write`) to enable it.
+Run the one-shot, self-contained verification script (it checks for JDK 17+ and
+Maven, then runs a clean build + all tests — no hosted CI needed):
+
+```bash
+./scripts/verify.sh
+```
+
+Or run Maven directly:
+
+```bash
+mvn clean verify        # compile + tests
+mvn test                # tests only
+```
+
+The build uses an isolated in-memory H2 for tests (via `src/test/resources/application.properties`), so `mvn verify` needs no external database.
+
+### JavaScript / template sanity (no JVM required)
+
+```bash
+node --check src/main/resources/static/js/app.js          # JS syntax
+```
+
+A GitHub Actions workflow (build, test, package, Docker image on pushes/PRs to `master`/`main`) is also documented in [`docs/github-actions-ci.md`](docs/github-actions-ci.md). It is intentionally **not** shipped as a live `.github/workflows/ci.yml` because the automation token used to publish this branch lacks the GitHub **Workflows** permission; add the file with the contents from that doc (and a token with `workflows: write`) to enable it.

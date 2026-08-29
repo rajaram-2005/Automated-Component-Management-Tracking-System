@@ -1,10 +1,14 @@
-# GitHub Actions CI workflow
+# GitHub Actions CI workflow (optional)
 
-This project is set up for a CI pipeline that builds, tests, packages, and produces
-a container image. The workflow is documented here because the commit that would
-have shipped it as a live `.github/workflows/ci.yml` was **removed from this
-branch** — the GitHub App token used to push this branch does not have the
-`workflows` permission required to create/update workflow files.
+> **Recommended path for verifying changes:** run `./scripts/verify.sh` locally.
+> It checks the toolchain and runs a clean build + all tests without needing any
+> hosted CI or special tokens. The workflow below is an optional enhancement.
+
+This project has a CI pipeline that builds, tests, packages, and produces a
+container image. The workflow is documented here because it is **not** shipped as
+a live `.github/workflows/ci.yml` on this branch — the GitHub App token used to
+publish this branch does not have the `workflows` permission required to
+create/update workflow files.
 
 ## How to re-enable
 
