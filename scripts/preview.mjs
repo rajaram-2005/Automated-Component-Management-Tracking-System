@@ -337,6 +337,192 @@ function normalize(body, existing) {
     return withAnalytics(merged);
 }
 
+/* ------------------------- PG-BNN mock engine ----------------------------
+   Mirrors PgbnnEngine's contract: an ensemble of seeded members around the
+   analytic physics prior, a conjugate-Gaussian posterior with a 90% band,
+   and an undirected token-affinity graph for visualization.                */
+
+const PG = { status: "ready", ensemble: 8, hidden: 24, features: 61, epochs: 120, trainedAt: null, lossCurve: [], finalLoss: 0 };
+
+const hash32 = (s) => {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) {
+        h = ((h ^ s.charCodeAt(i)) * 16777619) | 0;
+    }
+    return Math.abs(h);
+};
+const rand01 = (h) => (h % 10007) / 10007;
+
+function baseDays(c) {
+    const demand = Math.max(c.monthlyDemand || 0, 0.1);
+    return c.quantity <= 0 ? 0 : (c.quantity / demand) * 30;
+}
+
+function riskFrom(c, days) {
+    const min = c.minimumStockLevel || 0;
+    const lead = c.leadTimeDays || 0;
+    if (c.quantity <= Math.max(1, min / 2) || days <= lead) return "CRITICAL";
+    if (c.quantity <= min || days <= lead + 30) return "HIGH";
+    if (days <= 90) return "MODERATE";
+    return "LOW";
+}
+
+function pgbnnMembers(c) {
+    const prior = Math.max(baseDays(c), 0);
+    const out = [];
+    for (let m = 0; m < PG.ensemble; m++) {
+        const r = rand01(hash32(`${c.id ?? 0}|${c.name}|member-${m}`));
+        out.push(Math.max(0, Math.min(3650, prior * (1 + (r - 0.42) * 0.55) + (r - 0.5) * 3)));
+    }
+    return out;
+}
+
+function pgbnnForecast(c) {
+    const prior = Math.max(baseDays(c), 0);
+    const members = pgbnnMembers(c);
+    const mean = members.reduce((s, v) => s + v, 0) / members.length;
+    let variance = 0;
+    members.forEach((v) => { variance += (v - mean) ** 2; });
+    const std = Math.max(Math.sqrt(variance / Math.max(members.length - 1, 1)), 2 + 0.06 * mean);
+    const s0 = Math.max(3, 0.18 * prior + 1);
+    const precision = 1 / (s0 * s0) + 1 / (std * std);
+    const posterior = ((prior / (s0 * s0)) + (mean / (std * std))) / precision;
+    const sigma = Math.sqrt(1 / precision);
+    const tol = Math.max(1.5, 0.25 * mean);
+    const agreement = Math.round(members.filter((v) => Math.abs(v - mean) <= tol).length * 100 / members.length);
+    const round2 = (v) => Math.round((isFinite(v) ? v : 0) * 100) / 100;
+    return {
+        priorDays: round2(prior),
+        neuralMeanDays: round2(mean),
+        sigmaDays: round2(sigma),
+        posteriorDays: round2(posterior),
+        lowerDays: Math.max(0, round2(posterior - 1.6449 * sigma)),
+        upperDays: round2(posterior + 1.6449 * sigma),
+        agreementPercent: agreement,
+        memberDays: members.map(round2),
+        neuralActive: true
+    };
+}
+
+function pgbnnTokenSet(c) {
+    return new Set(`${c.name || ""} ${c.specifications || ""} ${c.category || ""}`.toLowerCase()
+        .split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !["with", "for", "the", "and", "from"].includes(t)));
+}
+
+function pgbnnGraph() {
+    const tokenSets = components.map(pgbnnTokenSet);
+    const edges = [];
+    for (let i = 0; i < components.length; i++) {
+        for (let j = i + 1; j < components.length; j++) {
+            const a = components[i];
+            const b = components[j];
+            const inter = [...tokenSets[i]].filter((t) => tokenSets[j].has(t)).length;
+            const union = new Set([...tokenSets[i], ...tokenSets[j]]).size;
+            const jac = union ? inter / union : 0;
+            const w = 0.55 * jac
+                + (a.discipline === b.discipline ? 0.15 : 0)
+                + (a.category === b.category ? 0.12 : 0)
+                + (a.region === b.region ? 0.08 : 0)
+                + 0.10 * (1 - Math.min(1, Math.abs(Math.log1p(a.quantity) - Math.log1p(b.quantity)) / 3));
+            if (w >= 0.3) edges.push({ source: a.id, target: b.id, weight: Math.round(w * 1000) / 1000 });
+        }
+    }
+    edges.sort((x, y) => y.weight - x.weight);
+    const trimmed = edges.slice(0, 60);
+    const degrees = {};
+    trimmed.forEach((e) => { degrees[e.source] = (degrees[e.source] || 0) + 1; degrees[e.target] = (degrees[e.target] || 0) + 1; });
+    const nodes = components.map((c) => ({
+        id: c.id,
+        name: c.name,
+        componentCode: c.componentCode,
+        discipline: c.discipline,
+        stockRisk: riskFrom(c, pgbnnForecast(c).posteriorDays),
+        quantity: c.quantity,
+        degree: degrees[c.id] || 0
+    }));
+    return { nodes, edges: trimmed };
+}
+
+function pgbnnTrain() {
+    const n = Math.max(components.length, 1);
+    PG.lossCurve = Array.from({ length: PG.ensemble }, (_, m) => {
+        const base = Math.max(0.18, 1.9 - Math.min(1.2, n * 0.06));
+        return Number((base * Math.exp(-0.18 * m) + rand01(hash32(`loss-${m}-${n}`)) * 0.08).toFixed(3));
+    });
+    PG.finalLoss = Number((PG.lossCurve.reduce((s, v) => s + v, 0) / PG.lossCurve.length).toFixed(3));
+    PG.trainedAt = new Date().toISOString();
+}
+
+function pgbnnHealth() {
+    const graph = pgbnnGraph();
+    const perClass = PG.features * PG.hidden + PG.hidden + PG.hidden * 3 + 3;
+    const perReg = PG.features * PG.hidden + PG.hidden + PG.hidden + 1;
+    return {
+        ensembleSize: PG.ensemble,
+        hiddenNeurons: PG.hidden,
+        inputFeatures: PG.features,
+        parameters: PG.ensemble * (perClass + perReg),
+        epochs: PG.epochs,
+        finalLoss: PG.finalLoss,
+        trainMillis: 3 + (components.length % 7),
+        graphNodes: graph.nodes.length,
+        graphEdges: graph.edges.length,
+        trainedAt: PG.trainedAt,
+        status: PG.status,
+        lossCurve: PG.lossCurve
+    };
+}
+
+function pgbnnPreview(body) {
+    const draft = {
+        id: 0,
+        name: body.name || "",
+        specifications: body.specifications || "",
+        category: body.category || "",
+        region: body.region || "Global",
+        quantity: Number(body.quantity) || 0,
+        minimumStockLevel: Number(body.minimumStockLevel) || 0,
+        monthlyDemand: Number(body.monthlyDemand) || 0,
+        leadTimeDays: Number(body.leadTimeDays) || 0,
+        unitPrice: Number(body.unitPrice) || 0
+    };
+    const counts = { EEE: 0, ECE: 0, MECHANICAL: 0 };
+    const text = `${draft.name} ${draft.specifications} ${draft.category}`.toLowerCase();
+    for (const [domain, words] of Object.entries(CLASSIFICATION_RULES)) {
+        counts[domain] = words.filter((w) => text.includes(w)).length;
+    }
+    if (body.discipline) counts[body.discipline] += 2;
+    const smoothed = Object.values(counts).map((v) => v + 0.35);
+    const total = smoothed.reduce((s, v) => s + v, 0);
+    const probs = Object.keys(counts).map((domain, i) => ({
+        domain,
+        probabilityPercent: Math.round((smoothed[i] / total) * 1000) / 10
+    }));
+    const ranked = [...probs].sort((a, b) => b.probabilityPercent - a.probabilityPercent);
+    const f = pgbnnForecast(draft);
+    const signals = [];
+    if (ranked[0].probabilityPercent - ranked[1].probabilityPercent > 25) {
+        signals.push(`ensemble separation favors ${ranked[0].domain}`);
+    } else {
+        signals.push("close call — graph neighbours carry most of the evidence");
+    }
+    return {
+        disciplineProbabilities: probs,
+        bestDiscipline: ranked[0].domain,
+        neuralConfidencePercent: ranked[0].probabilityPercent,
+        ensembleAgreementPercent: f.agreementPercent,
+        priorDays: f.priorDays,
+        posteriorDays: f.posteriorDays,
+        sigmaDays: f.sigmaDays,
+        lowerDays: f.lowerDays,
+        upperDays: f.upperDays,
+        agreementPercent: f.agreementPercent,
+        graphSignals: signals
+    };
+}
+
+pgbnnTrain();
+
 /* ------------------------------ http plumbing --------------------------- */
 
 const MIME = {
@@ -403,6 +589,7 @@ const server = createServer(async (req, res) => {
             if (errors) return send(res, 400, { errors });
             const created = normalize(body);
             components.push(created);
+            pgbnnTrain(); // mirrors the engine's fingerprint-triggered retrain
             pushAudit("CREATE", created.id, `Created component ${created.name} (${created.componentCode})`);
             return send(res, 201, created);
         }
@@ -428,12 +615,14 @@ const server = createServer(async (req, res) => {
                 const errors = validateComponent(body);
                 if (errors) return send(res, 400, { errors });
                 components[idx] = { ...normalize(body, components[idx]), id };
+                pgbnnTrain();
                 pushAudit("UPDATE", id, `Updated component ${components[idx].name} (${components[idx].componentCode})`);
                 return send(res, 200, components[idx]);
             }
             if (method === "DELETE") {
                 if (idx === -1) return send(res, 404, { message: "Component not found" });
                 const [removed] = components.splice(idx, 1);
+                pgbnnTrain();
                 pushAudit("DELETE", id, `Deleted component ${removed.name} (${removed.componentCode})`);
                 return send(res, 204, "");
             }
@@ -441,6 +630,31 @@ const server = createServer(async (req, res) => {
         if (p === "/api/ai/classify" && method === "POST") {
             const body = await readBody(req);
             return send(res, 200, classify(body.name, body.specifications, body.categoryHint));
+        }
+        if (p === "/api/ai/pgbnn/health" && method === "GET") return send(res, 200, pgbnnHealth());
+        if (p === "/api/ai/pgbnn/retrain" && method === "POST") {
+            pgbnnTrain();
+            return send(res, 200, pgbnnHealth());
+        }
+        if (p === "/api/ai/pgbnn/graph" && method === "GET") return send(res, 200, pgbnnGraph());
+        if (p === "/api/ai/pgbnn/preview" && method === "POST") {
+            const body = await readBody(req);
+            return send(res, 200, pgbnnPreview(body));
+        }
+        const pgbnnForecastMatch = p.match(/^\/api\/ai\/pgbnn\/forecast\/(\d+)$/);
+        if (pgbnnForecastMatch && method === "GET") {
+            const c = components.find((x) => x.id === Number(pgbnnForecastMatch[1]));
+            if (!c) return send(res, 404, { message: "Component not found" });
+            const f = pgbnnForecast(c);
+            return send(res, 200, {
+                componentId: c.id,
+                name: c.name,
+                componentCode: c.componentCode,
+                discipline: c.discipline,
+                ...f,
+                risk: riskFrom(c, f.posteriorDays),
+                narrative: `Posterior 90% credible band spans ${f.lowerDays.toFixed(1)} to ${f.upperDays.toFixed(1)} days (sigma ${f.sigmaDays.toFixed(1)} days); ensemble mean ${f.neuralMeanDays.toFixed(1)} days, agreement ${f.agreementPercent}%`
+            });
         }
         if (p === "/api/analytics/overview" && method === "GET") return send(res, 200, overview());
         if (p === "/api/audit/recent" && method === "GET") {

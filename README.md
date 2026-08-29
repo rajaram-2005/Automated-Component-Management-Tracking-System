@@ -10,6 +10,7 @@ A Spring Boot web application for managing engineering components across **Elect
 - **Natural-language search** across names, disciplines, specs, regions, and stock intent
 - **Automated classification** of components using rule-based AI signals from specifications
 - **Recommendation engine** for related and high-availability parts
+- **PG-BNN neural engine** — Probabilistic Graph Bayesian Neural Network: an 8-member MLP ensemble over a component affinity graph, fused with the inventory-physics prior into calibrated posteriors with 90% credible bands (new panel, new REST endpoints, live in the wizard)
 - **Predictive analytics** for stockout risk and availability confidence
 - **New colorful UI** ("Aurora Industrial"): gradient glass panels, discipline color coding (ECE violet, EEE amber, Mechanical teal), animated gradient CTAs, KPI cards with tone-matched glows, and a live stock-risk meter
 - **Guided 4-step component form** (the new form): Identity → Classification (inline AI preview) → Inventory & Forecast (live risk meter) → Review, with per-step validation and one-click create/update against the REST API
@@ -43,6 +44,11 @@ This project includes practical, explainable intelligence features that work wit
    Uses keyword normalization, token overlap, region detection, stock intent, and quantity hints.
 3. **Recommendation Engine** — suggests similar or complementary components based on domain similarity, category affinity, specifications overlap, and forecasted availability.
 4. **Predictive Availability Analytics** — estimates days-to-stockout from inventory, monthly demand, and lead time, then generates availability confidence and stock-risk labels.
+5. **PG-BNN (Probabilistic Graph Bayesian Neural Network)** — the "epic" engine, pure Java, deterministic seeds, zero external dependencies:
+   - **Neural layer** — an ensemble of eight 61→24→3 (discipline softmax) + 61→24→1 (log days-to-stockout) MLPs trained by SGD/backprop on the live catalog; each member sees a seeded bootstrap sample, so member spread is a usable epistemic-uncertainty signal.
+   - **Bayesian layer** — the ensemble mean/std forms a Gaussian likelihood which is conjugate-fused with the deterministic inventory-physics model (the `AnalyticsService` math) treated as the prior; outputs always ship a posterior + σ + 90% credible band, never a naked point estimate.
+   - **Graph layer** — components link via token/category/region/quantity affinity; classification posteriors are refined by damped label propagation, so ambiguous parts inherit evidence from neighbours. The graph is rendered live in the dashboard's PGBNN panel (animated, click-a-node to inspect).
+   - **Endpoints** — `GET /api/ai/pgbnn/health | /graph | /forecast/{id}`, `POST /api/ai/pgbnn/preview | /retrain`. The engine retrains lazily whenever the catalog fingerprint changes; untrained/degraded states fall back to the wide-band analytic prior. The wizard's Inventory step streams draft previews into `POST /preview` so you see the posterior band *while typing*.
 
 ## Default Accounts
 
@@ -58,11 +64,12 @@ You can also register a new engineer account from the `/register` page.
 ```text
 src/main/java/com/arena/compoundmanagement
 ├── config        # Security, data seeder
-├── controller    # Web & REST controllers
-├── dto           # Request/response records
+├── controller    # Web & REST controllers (incl. PgbnnController for the neural engine)
+├── dto           # Request/response records (incl. Pgbnn* responses)
 ├── model         # JPA entities + enums
 ├── repository    # Spring Data repositories
-└── service       # Business logic (analytics, search, classification, recommendation, audit)
+└── service       # Business logic (analytics, search, classification, recommendation, audit,
+                  # PgbnnEngine + PgbnnService — the graph-Bayesian neural layer)
 ```
 
 ```text

@@ -105,6 +105,36 @@
         <p id="searchSummary" class="search-summary">Browse the live catalog or launch a semantic search.</p>
     </section>
 
+    <section class="panel pgbnn-panel" id="pgbnnPanel">
+        <div class="panel-header space-between">
+            <div>
+                <h2>🧠 PGBNN <span class="grad-text">Engine</span></h2>
+                <p>Probabilistic Graph Bayesian Neural Network — an 8-member neural ensemble over the live component
+                    graph, fused with the inventory-physics prior into calibrated posteriors with credible bands.</p>
+            </div>
+            <div class="header-actions">
+                <span class="neural-status" id="pgbnnStatus"><span class="live-dot" aria-hidden="true"></span>waking up…</span>
+                <button id="pgbnnRetrainBtn" class="secondary-btn" type="button">⟳ Retrain</button>
+            </div>
+        </div>
+        <div class="neural-grid">
+            <div class="neural-canvas-wrap">
+                <canvas id="pgbnnNet" width="260" height="260" role="img" aria-label="PGBNN component affinity graph"></canvas>
+                <div class="neural-caption">Graph layer · node size = degree · click a node to inspect</div>
+            </div>
+            <div class="neural-metrics">
+                <div class="metric-chip-grid" id="pgbnnMetrics"></div>
+                <div class="neural-loss">
+                    <h3>Training loss (per ensemble member)</h3>
+                    <canvas id="pgbnnLossSpark" width="300" height="64" role="img" aria-label="Training loss curve"></canvas>
+                </div>
+            </div>
+            <div class="neural-predict" id="pgbnnPrediction">
+                <p class="muted" style="margin:0">No node selected. Click a component in the graph (or use the 🧠 action in the table) to get the posterior stock-out horizon with its 90% credible band.</p>
+            </div>
+        </div>
+    </section>
+
     <section class="content-grid">
         <main class="main-rail">
             <article class="panel table-panel">
@@ -433,6 +463,10 @@
                             <span class="readout-chip">🧾 <span id="stockValuePreview">$0</span></span>
                         </div>
                         <p class="risk-narrative" id="riskNarrative">Enter stock levels to generate a forecast.</p>
+                    </div>
+                    <div class="pgbnn-strip">
+                        <span class="pgbnn-brand">🧠 PGBNN</span>
+                        <span id="pgbnnStripText">Querying ensemble for this draft…</span>
                     </div>
                 </section>
 

@@ -1335,6 +1335,299 @@ tbody tr.row-editing {
 }
 
 /* ==========================================================================
+   PGBNN — Probabilistic Graph Bayesian Neural Network panel
+   ========================================================================== */
+
+.pgbnn-panel {
+    background:
+            radial-gradient(700px 260px at 12% 0%, rgba(45, 212, 191, 0.14), transparent 60%),
+            radial-gradient(700px 300px at 92% 100%, rgba(139, 92, 246, 0.16), transparent 62%),
+            var(--surface);
+    border-color: rgba(45, 212, 191, 0.28);
+}
+
+.neural-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 13px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #99f6e4;
+    background: rgba(45, 212, 191, 0.12);
+    border: 1px solid rgba(45, 212, 191, 0.38);
+}
+
+.neural-status .live-dot {
+    background: var(--teal);
+    box-shadow: 0 0 10px var(--teal);
+}
+
+.neural-grid {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 18px;
+    align-items: stretch;
+}
+
+.neural-canvas-wrap {
+    display: grid;
+    gap: 8px;
+    justify-items: center;
+    align-content: center;
+    padding: 12px;
+    border-radius: 18px;
+    background: rgba(4, 8, 22, 0.5);
+    border: 1px solid rgba(45, 212, 191, 0.25);
+    box-shadow: inset 0 0 40px rgba(45, 212, 191, 0.08);
+}
+
+#pgbnnNet {
+    display: block;
+    cursor: crosshair;
+    border-radius: 12px;
+}
+
+.neural-caption {
+    color: var(--muted);
+    font-size: 0.74rem;
+    letter-spacing: 0.03em;
+}
+
+.neural-metrics {
+    display: grid;
+    gap: 12px;
+    align-content: start;
+}
+
+.metric-chip-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+}
+
+.metric-chip {
+    display: grid;
+    gap: 3px;
+    padding: 10px 12px;
+    border-radius: 13px;
+    background: var(--card);
+    border: 1px solid var(--border);
+}
+
+.metric-chip span {
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+}
+
+.metric-chip strong {
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+}
+
+.neural-loss {
+    display: grid;
+    gap: 6px;
+}
+
+.neural-loss h3 {
+    margin: 0;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+}
+
+#pgbnnLossSpark {
+    display: block;
+    width: 100%;
+    height: 64px;
+    border-radius: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+}
+
+.neural-predict {
+    display: grid;
+    align-content: start;
+}
+
+.pgbnn-card {
+    display: grid;
+    gap: 10px;
+}
+
+.band-block {
+    display: grid;
+    gap: 8px;
+}
+
+.band-labels {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.band-track {
+    position: relative;
+    height: 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+
+.band-range {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(45, 212, 191, 0.55), rgba(139, 92, 246, 0.55));
+    box-shadow: 0 0 18px rgba(45, 212, 191, 0.4);
+}
+
+.band-marker {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    width: 4px;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 0 12px #fff;
+    transform: translateX(-2px);
+}
+
+.band-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.member-strip {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 32px;
+    padding-top: 4px;
+}
+
+.member-dot {
+    width: 12px;
+    border-radius: 5px 5px 2px 2px;
+    background: linear-gradient(180deg, var(--teal), var(--violet));
+    box-shadow: 0 0 8px rgba(45, 212, 191, 0.5);
+    transition: height 0.35s var(--ease);
+}
+
+/* wizard draft strip */
+
+.pgbnn-strip {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    flex-wrap: wrap;
+    padding: 11px 14px;
+    border-radius: 13px;
+    background:
+            radial-gradient(240px 60px at 0% 0%, rgba(45, 212, 191, 0.16), transparent 70%),
+            var(--surface-muted);
+    border: 1px solid rgba(45, 212, 191, 0.3);
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.pgbnn-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #99f6e4;
+    background: rgba(45, 212, 191, 0.14);
+    border: 1px solid rgba(45, 212, 191, 0.4);
+    white-space: nowrap;
+}
+
+[data-theme="light"] .pgbnn-panel {
+    border-color: rgba(13, 148, 136, 0.32);
+    background:
+            radial-gradient(700px 260px at 12% 0%, rgba(13, 148, 136, 0.07), transparent 60%),
+            radial-gradient(700px 300px at 92% 100%, rgba(124, 58, 237, 0.07), transparent 62%),
+            rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .neural-status {
+    color: #0f766e;
+    background: rgba(13, 148, 136, 0.09);
+    border-color: rgba(13, 148, 136, 0.35);
+}
+
+[data-theme="light"] .neural-canvas-wrap {
+    background: rgba(240, 253, 250, 0.7);
+    border-color: rgba(13, 148, 136, 0.28);
+    box-shadow: inset 0 0 30px rgba(13, 148, 136, 0.05);
+}
+
+[data-theme="light"] .band-range {
+    background: linear-gradient(90deg, rgba(13, 148, 136, 0.45), rgba(124, 58, 237, 0.4));
+    box-shadow: none;
+}
+
+[data-theme="light"] .band-track {
+    background: rgba(76, 29, 149, 0.08);
+}
+
+[data-theme="light"] .band-marker {
+    background: #1c1440;
+    box-shadow: 0 0 8px rgba(28, 20, 64, 0.5);
+}
+
+[data-theme="light"] .pgbnn-strip {
+    background: rgba(240, 253, 250, 0.8);
+    border-color: rgba(13, 148, 136, 0.3);
+}
+
+[data-theme="light"] .pgbnn-brand {
+    color: #0f766e;
+    background: rgba(13, 148, 136, 0.1);
+    border-color: rgba(13, 148, 136, 0.35);
+}
+
+[data-theme="light"] .member-dot {
+    box-shadow: none;
+    background: linear-gradient(180deg, #0d9488, #7c3aed);
+}
+
+@media (max-width: 1280px) {
+    .neural-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .neural-canvas-wrap {
+        justify-items: center;
+    }
+}
+
+@media (max-width: 860px) {
+    .metric-chip-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* ==========================================================================
    THE NEW FORM — multi-step component wizard
    ========================================================================== */
 

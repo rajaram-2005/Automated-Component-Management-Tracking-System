@@ -37,6 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initDialogWheelScroll();
     showTableSkeleton();
     initCommandPalette();
+    initPgbnn();
     refreshAll();
     loadAuditLog();
 });
@@ -59,7 +60,9 @@ function cacheElements() {
         "filterDomain", "filterRegion", "filterRisk", "catalogCount", "domainDonut", "donutLegend",
         "auditList", "auditRefreshBtn", "commandPalette", "commandOverlay", "commandInput",
         "commandCloseBtn", "commandResults",
-        "scrollUpBtn", "scrollDownBtn", "scrollProgress"
+        "scrollUpBtn", "scrollDownBtn", "scrollProgress",
+        "pgbnnPanel", "pgbnnStatus", "pgbnnRetrainBtn", "pgbnnMetrics", "pgbnnPrediction",
+        "pgbnnNet", "pgbnnLossSpark", "pgbnnStripText"
     ];
 
     ids.forEach((id) => {
@@ -168,6 +171,10 @@ function bindEvents() {
 
         if (action === "recommend") {
             await showComponentRecommendations(component.id, component.name);
+        }
+
+        if (action === "brain") {
+            await pgbnnInspect(component.id);
         }
     });
 
@@ -341,6 +348,7 @@ function setTheme(theme) {
 
 async function refreshAll() {
     await Promise.all([loadComponents(), loadAnalytics()]);
+    loadPgbnnAll();
 }
 
 async function loadComponents() {
@@ -515,6 +523,7 @@ function renderComponents(components) {
                     <div class="table-actions">
                         <button type="button" class="secondary-btn" data-action="edit" data-id="${component.id}">✏️ Edit</button>
                         <button type="button" class="ghost-btn" data-action="recommend" data-id="${component.id}">✨ Suggest</button>
+                        <button type="button" class="ghost-btn" data-action="brain" data-id="${component.id}" title="PG-BNN uncertainty analysis">🧠</button>
                         <button type="button" class="danger-btn" data-action="delete" data-id="${component.id}">🗑</button>
                     </div>
                 </td>
@@ -914,6 +923,7 @@ function updateRiskMeter() {
         return;
     }
     const forecast = draftForecast();
+    schedulePgbnnStrip();
 
     els.riskScore.innerHTML = `<span class="badge ${forecast.risk.toLowerCase()}">${forecast.risk}</span>`;
     els.daysToStockout.textContent = `${forecast.daysToStockout.toFixed(1)} days to stockout`;
@@ -1128,6 +1138,363 @@ async function showComponentRecommendations(componentId, componentName) {
         showToast(`✨ AI recommendations generated for ${componentName}.`);
     } catch (error) {
         showToast(error.message || "Unable to load recommendations.", true);
+    }
+}
+
+/* ==========================================================================
+   PGBNN — Probabilistic Graph Bayesian Neural Network panel
+   ========================================================================== */
+
+const pgbnn = { nodes: [], edges: [], positions: new Map(), activeId: null, raf: 0 };
+let pgbnnStripTimer = null;
+
+function initPgbnn() {
+    if (!els.pgbnnNet) {
+        return;
+    }
+    els.pgbnnNet.addEventListener("click", handlePgbnnCanvasClick);
+    els.pgbnnRetrainBtn.addEventListener("click", retrainPgbnn);
+    loadPgbnnAll();
+}
+
+async function loadPgbnnAll() {
+    if (!els.pgbnnNet) {
+        return;
+    }
+    loadPgbnnHealth();
+    loadPgbnnGraph();
+}
+
+async function loadPgbnnHealth() {
+    try {
+        const health = await api("/api/ai/pgbnn/health");
+        renderPgbnnHealth(health);
+    } catch (error) {
+        if (els.pgbnnStatus) {
+            els.pgbnnStatus.innerHTML = `<span class="live-dot" aria-hidden="true"></span>engine offline`;
+        }
+    }
+}
+
+async function loadPgbnnGraph() {
+    try {
+        const graph = await api("/api/ai/pgbnn/graph");
+        pgbnn.nodes = graph.nodes || [];
+        pgbnn.edges = graph.edges || [];
+        layoutPgbnn();
+        drawPgbnnNetwork();
+    } catch (error) {
+        pgbnn.nodes = [];
+        pgbnn.edges = [];
+        drawPgbnnNetwork();
+    }
+}
+
+async function retrainPgbnn() {
+    if (!els.pgbnnRetrainBtn) {
+        return;
+    }
+    els.pgbnnRetrainBtn.disabled = true;
+    if (els.pgbnnStatus) {
+        els.pgbnnStatus.innerHTML = `<span class="live-dot" aria-hidden="true"></span>training…`;
+    }
+    try {
+        const health = await api("/api/ai/pgbnn/retrain", { method: "POST" });
+        renderPgbnnHealth(health);
+        await loadPgbnnGraph();
+        showToast(`🧠 PGBNN retrained — ${health.graphNodes} nodes, ${health.graphEdges} edges, loss ${health.finalLoss}`);
+    } catch (error) {
+        showToast(error.message || "PGBNN retrain failed.", true);
+    } finally {
+        els.pgbnnRetrainBtn.disabled = false;
+    }
+}
+
+function renderPgbnnHealth(health) {
+    if (els.pgbnnStatus) {
+        els.pgbnnStatus.innerHTML = `<span class="live-dot" aria-hidden="true"></span>${escapeHtml(health.status)} · ${health.ensembleSize}×MLP ${health.inputFeatures}→${health.hiddenNeurons}→3+1`;
+    }
+    if (els.pgbnnMetrics) {
+        const chips = [
+            ["Members", health.ensembleSize],
+            ["Parameters", Number(health.parameters || 0).toLocaleString()],
+            ["Epochs / member", health.epochs],
+            ["Final loss", Number(health.finalLoss || 0).toFixed(3)],
+            ["Train time", `${health.trainMillis} ms`],
+            ["Graph", `${health.graphNodes}n · ${health.graphEdges}e`],
+            ["Trained", health.trainedAt ? new Date(health.trainedAt).toLocaleTimeString() : "never"]
+        ];
+        els.pgbnnMetrics.innerHTML = chips.map(([label, value]) => `
+            <div class="metric-chip">
+                <span>${escapeHtml(String(label))}</span>
+                <strong>${escapeHtml(String(value))}</strong>
+            </div>`).join("");
+    }
+    drawPgbnnLossSpark(health.lossCurve || []);
+}
+
+function layoutPgbnn() {
+    pgbnn.positions.clear();
+    const count = pgbnn.nodes.length;
+    if (!count) {
+        return;
+    }
+    const cx = 130;
+    const cy = 130;
+    const radius = count === 1 ? 0 : 96;
+    pgbnn.nodes.forEach((node, index) => {
+        const angle = -Math.PI / 2 + (index * 2 * Math.PI) / count;
+        pgbnn.positions.set(node.id, { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) });
+    });
+}
+
+function riskStrokeColor(risk) {
+    const map = {
+        LOW: "rgba(52, 211, 153, 0.85)",
+        MODERATE: "rgba(251, 191, 36, 0.85)",
+        HIGH: "rgba(251, 146, 60, 0.9)",
+        CRITICAL: "rgba(244, 63, 94, 0.95)"
+    };
+    return map[String(risk || "LOW").toUpperCase()] || "rgba(148, 163, 184, 0.6)";
+}
+
+function drawPgbnnNetwork() {
+    const canvas = els.pgbnnNet;
+    if (!canvas || typeof canvas.getContext !== "function") {
+        return;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+        return;
+    }
+    const reduced = typeof window.matchMedia === "function"
+        && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const light = document.documentElement.getAttribute("data-theme") === "light";
+
+    window.cancelAnimationFrame(pgbnn.raf);
+
+    function frame(timestamp) {
+        const t = reduced ? 0 : ((timestamp || 0) % 2600) / 2600;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        pgbnn.edges.forEach((edge, index) => {
+            const a = pgbnn.positions.get(edge.source);
+            const b = pgbnn.positions.get(edge.target);
+            if (!a || !b) {
+                return;
+            }
+            const highlight = pgbnn.activeId !== null && (edge.source === pgbnn.activeId || edge.target === pgbnn.activeId);
+            ctx.strokeStyle = highlight
+                ? (light ? "rgba(192, 38, 211, 0.6)" : "rgba(240, 171, 252, 0.6)")
+                : (light ? "rgba(109, 40, 217, 0.18)" : "rgba(167, 139, 250, 0.22)");
+            ctx.lineWidth = highlight ? 1.6 : 1;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+
+            if (!reduced) {
+                const p = (t + index / Math.max(pgbnn.edges.length, 1)) % 1;
+                ctx.fillStyle = "rgba(34, 211, 238, 0.9)";
+                ctx.beginPath();
+                ctx.arc(a.x + (b.x - a.x) * p, a.y + (b.y - a.y) * p, 1.8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+
+        pgbnn.nodes.forEach((node) => {
+            const position = pgbnn.positions.get(node.id);
+            if (!position) {
+                return;
+            }
+            const active = pgbnn.activeId === node.id;
+            const radius = 5 + Math.min(node.degree || 0, 4) * 1.6 + (active ? 3 : 0);
+            if (active) {
+                ctx.strokeStyle = "#f0abfc";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(position.x, position.y, radius + 4.5, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.fillStyle = DONUT_COLORS[node.discipline] || "#8b5cf6";
+            ctx.beginPath();
+            ctx.arc(position.x, position.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = riskStrokeColor(node.stockRisk);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(position.x, position.y, radius + 2.4, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+
+        if (!pgbnn.nodes.length) {
+            ctx.fillStyle = light ? "#6b6394" : "#b6b1d6";
+            ctx.font = "12px Inter, system-ui, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("no nodes yet — add components", 130, 134);
+        }
+
+        if (!reduced && pgbnn.edges.length) {
+            pgbnn.raf = window.requestAnimationFrame(frame);
+        }
+    }
+
+    frame(0);
+}
+
+function handlePgbnnCanvasClick(event) {
+    const canvas = els.pgbnnNet;
+    if (!canvas || !pgbnn.nodes.length) {
+        return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    let best = null;
+    let bestDistance = 18 * 18;
+    pgbnn.nodes.forEach((node) => {
+        const position = pgbnn.positions.get(node.id);
+        if (!position) {
+            return;
+        }
+        const dx = position.x - x;
+        const dy = position.y - y;
+        const distance = dx * dx + dy * dy;
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            best = node;
+        }
+    });
+
+    if (best) {
+        pgbnnInspect(best.id);
+    }
+}
+
+async function pgbnnInspect(componentId) {
+    if (!els.pgbnnPrediction) {
+        return;
+    }
+    pgbnn.activeId = componentId;
+    drawPgbnnNetwork();
+    els.pgbnnPrediction.innerHTML = `<p class="muted" style="margin:0">🧠 running inference…</p>`;
+    try {
+        const forecast = await api(`/api/ai/pgbnn/forecast/${componentId}`);
+        renderPgbnnForecast(forecast);
+        if (els.pgbnnPanel && typeof els.pgbnnPanel.scrollIntoView === "function") {
+            els.pgbnnPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+    } catch (error) {
+        els.pgbnnPrediction.innerHTML = `<p class="muted" style="margin:0">PGBNN inference unavailable.</p>`;
+    }
+}
+
+function renderPgbnnForecast(forecast) {
+    const total = Math.max(forecast.upperDays * 1.05, (forecast.upperDays - forecast.lowerDays) + 2, 10);
+    const left = (forecast.lowerDays / total) * 100;
+    const width = Math.max(((forecast.upperDays - forecast.lowerDays) / total) * 100, 2);
+    const marker = (forecast.posteriorDays / total) * 100;
+    const members = (forecast.memberDays || []).map((value) =>
+        `<span class="member-dot" title="member mean ${value} days" style="height:${Math.max(4, Math.min((value / total) * 30, 30))}px"></span>`).join("");
+
+    els.pgbnnPrediction.innerHTML = `
+        <div class="metric-card pgbnn-card">
+            <div class="component-name">🧠 ${escapeHtml(forecast.name)}</div>
+            <div class="component-meta">${escapeHtml(forecast.componentCode)} · ${disciplineChip(forecast.discipline)} · <span class="badge ${riskClass(forecast.risk)}">${escapeHtml(forecast.risk)}</span></div>
+            <div class="band-block">
+                <div class="band-labels"><span>0</span><span>days to stock-out</span><span>${total.toFixed(0)}</span></div>
+                <div class="band-track">
+                    <div class="band-range" style="left:${left}%; width:${width}%"></div>
+                    <div class="band-marker" style="left:${marker}%"></div>
+                </div>
+                <div class="band-chips">
+                    <span class="readout-chip">posterior ${forecast.posteriorDays}d</span>
+                    <span class="readout-chip">band ${forecast.lowerDays}–${forecast.upperDays}d</span>
+                    <span class="readout-chip">prior ${forecast.priorDays}d</span>
+                    <span class="readout-chip">neural ${forecast.neuralMeanDays}d</span>
+                    <span class="readout-chip">σ ${forecast.sigmaDays}d</span>
+                    <span class="readout-chip">agree ${forecast.agreementPercent}%</span>
+                </div>
+                <div class="member-strip" aria-hidden="true">${members}</div>
+            </div>
+            <p class="risk-narrative">${escapeHtml(forecast.narrative)}${forecast.neuralActive ? "" : " · engine not trained yet — analytic prior shown"}</p>
+        </div>`;
+}
+
+function drawPgbnnLossSpark(lossCurve) {
+    const canvas = els.pgbnnLossSpark;
+    if (!canvas || typeof canvas.getContext !== "function") {
+        return;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+        return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!lossCurve.length) {
+        return;
+    }
+    const max = Math.max(...lossCurve, 0.001);
+    const stepX = canvas.width / Math.max(lossCurve.length - 1, 1);
+    const light = document.documentElement.getAttribute("data-theme") === "light";
+
+    ctx.beginPath();
+    lossCurve.forEach((value, index) => {
+        const x = index * stepX;
+        const y = canvas.height - 6 - (value / max) * (canvas.height - 14);
+        if (index === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+    ctx.strokeStyle = light ? "#7c3aed" : "#c4b5fd";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.lineTo((lossCurve.length - 1) * stepX, canvas.height);
+    ctx.lineTo(0, canvas.height);
+    ctx.closePath();
+    ctx.fillStyle = light ? "rgba(124, 58, 237, 0.10)" : "rgba(196, 181, 253, 0.14)";
+    ctx.fill();
+}
+
+/* --------- PGBNN strip in the wizard (draft analysis, never blocks) ------ */
+
+function schedulePgbnnStrip() {
+    window.clearTimeout(pgbnnStripTimer);
+    pgbnnStripTimer = window.setTimeout(updatePgbnnStrip, 900);
+}
+
+async function updatePgbnnStrip() {
+    if (!els.pgbnnStripText || els.componentWizard.classList.contains("hidden")) {
+        return;
+    }
+    try {
+        const payload = {
+            name: els.name.value.trim(),
+            specifications: els.specifications.value.trim() || null,
+            category: els.category.value.trim() || null,
+            subCategory: els.subCategory.value.trim() || null,
+            region: els.region.value,
+            discipline: getDiscipline() || null,
+            quantity: num("quantity"),
+            minimumStockLevel: num("minimumStockLevel"),
+            monthlyDemand: num("monthlyDemand"),
+            leadTimeDays: num("leadTimeDays"),
+            unitPrice: num("unitPrice")
+        };
+        const result = await api("/api/ai/pgbnn/preview", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        els.pgbnnStripText.textContent =
+            `posterior ~${result.posteriorDays}d · 90% band ${result.lowerDays}–${result.upperDays}d · ` +
+            `agreement ${result.agreementPercent}% · ${result.bestDiscipline} @ ${result.neuralConfidencePercent}%`;
+    } catch (error) {
+        els.pgbnnStripText.textContent = "PGBNN draft analysis unavailable.";
     }
 }
 
