@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
     cacheElements();
     applySavedTheme();
     bindEvents();
+    initScrollAssist();
     showTableSkeleton();
     initCommandPalette();
     refreshAll();
@@ -56,7 +57,8 @@ function cacheElements() {
         "averageAvailability", "themeToggle", "commandOpenBtn", "commandInlineBtn", "exportBtn",
         "filterDomain", "filterRegion", "filterRisk", "catalogCount", "domainDonut", "donutLegend",
         "auditList", "auditRefreshBtn", "commandPalette", "commandOverlay", "commandInput",
-        "commandCloseBtn", "commandResults"
+        "commandCloseBtn", "commandResults",
+        "scrollUpBtn", "scrollDownBtn", "scrollProgress"
     ];
 
     ids.forEach((id) => {
@@ -187,6 +189,79 @@ function bindEvents() {
             }
         }
     });
+}
+
+/* --------------------------- Scroll assist ------------------------------- */
+
+/*
+ * One passive, rAF-batched scroll listener drives everything scroll-related:
+ * the top progress line, the ↓/↑ floating buttons, and the compact sticky
+ * topbar state. No layout reads are forced outside the frame (scrollHeight /
+ * clientHeight are cheap cached reads; only transform + classes are written),
+ * and everything respects prefers-reduced-motion.
+ */
+
+function initScrollAssist() {
+    if (!els.scrollUpBtn || !els.scrollDownBtn) {
+        return;
+    }
+
+    const topbar = document.querySelector(".topbar");
+    const reduceMotion = typeof window.matchMedia === "function"
+        && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const behavior = reduceMotion ? "auto" : "smooth";
+    let ticking = false;
+
+    function maxScroll() {
+        const doc = document.documentElement;
+        const viewport = window.innerHeight || doc.clientHeight || 0;
+        return Math.max((doc.scrollHeight || 0) - viewport, 0);
+    }
+
+    function update() {
+        ticking = false;
+        const y = window.scrollY || window.pageYOffset || 0;
+        const max = maxScroll();
+        const progress = max > 0 ? Math.min(y / max, 1) : 0;
+
+        els.scrollUpBtn.classList.toggle("show", y > 420);
+        els.scrollDownBtn.classList.toggle("show", max > 0 && y < max - 220);
+
+        if (els.scrollProgress) {
+            els.scrollProgress.style.transform = `scaleX(${progress.toFixed(4)})`;
+        }
+        if (topbar) {
+            topbar.classList.toggle("scrolled", y > 8);
+        }
+    }
+
+    function scheduleUpdate() {
+        if (!ticking) {
+            ticking = true;
+            window.requestAnimationFrame(update);
+        }
+    }
+
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate, { passive: true });
+
+    els.scrollUpBtn.addEventListener("click", () => {
+        window.scrollTo({ top: 0, behavior });
+    });
+
+    els.scrollDownBtn.addEventListener("click", () => {
+        const viewport = window.innerHeight || document.documentElement.clientHeight || 800;
+        const y = window.scrollY || window.pageYOffset || 0;
+        window.scrollTo({ top: Math.min(y + Math.round(viewport * 0.85), maxScroll()), behavior });
+    });
+
+    // Data loads swap skeletons for content and change page height; keep the
+    // down-button visibility accurate without polling the scroll position.
+    if (typeof ResizeObserver === "function") {
+        new ResizeObserver(scheduleUpdate).observe(document.body);
+    }
+
+    update();
 }
 
 /* ---------------------------- Theme ------------------------------------- */

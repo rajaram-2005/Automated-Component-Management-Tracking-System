@@ -14,6 +14,7 @@ A Spring Boot web application for managing engineering components across **Elect
 - **New colorful UI** ("Aurora Industrial"): gradient glass panels, discipline color coding (ECE violet, EEE amber, Mechanical teal), animated gradient CTAs, KPI cards with tone-matched glows, and a live stock-risk meter
 - **Guided 4-step component form** (the new form): Identity → Classification (inline AI preview) → Inventory & Forecast (live risk meter) → Review, with per-step validation and one-click create/update against the REST API
 - **Modern, responsive UX**: light/dark theme toggle, keyboard command palette (**⌘K**), press **N** to launch the new component form, catalog filters, CSV export, donut chart, animated counters, and loading skeletons
+- **Smooth scrolling by design**: sticky compacting topbar, top scroll-progress line, floating ↑/↓ scroll controls, scroll-lock without layout shift (`scrollbar-gutter`), and a scroll-jank budget that keeps `backdrop-filter` and infinite animations off scrolling surfaces (aurora background lives on fixed compositor layers)
 - **H2 database** (default, zero-setup) with an optional **PostgreSQL** production profile
 - **Actuator** health/info endpoints, graceful shutdown, and a GitHub Actions CI pipeline
 
