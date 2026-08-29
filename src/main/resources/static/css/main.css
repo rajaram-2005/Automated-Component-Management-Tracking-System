@@ -1529,6 +1529,8 @@ tbody tr.row-editing {
     overflow: auto;
     overscroll-behavior: contain; /* wheel at the end of the form never propagates to the locked page */
     scrollbar-gutter: stable;     /* no horizontal jitter when the inner scrollbar appears */
+    scrollbar-width: thin;        /* Firefox parity with the gradient webkit scrollbar */
+    scrollbar-color: rgba(139, 92, 246, 0.55) transparent;
     flex: 1;
 }
 
@@ -2231,14 +2233,24 @@ body.wizard-open {
 .auth-body {
     min-height: 100vh;
     display: grid;
-    place-items: center;
+    justify-items: center;
+    /*
+     * `safe center` centers the card while it fits, and falls back to
+     * start-alignment when it overflows — so a short window can always
+     * scroll down to the rest of the sign-up form instead of having the
+     * top clipped off by centering.
+     */
+    align-content: safe center;
     padding: 28px;
     position: relative;
-    overflow: hidden;
+    /* was overflow:hidden (the orbs made stray bleed) — that killed all
+       wheel/pointer scrolling on sign-in and sign-up. Orbs are fixed layers
+       now, so only horizontal ink is clipped; vertical scroll is restored. */
+    overflow-x: clip;
 }
 
 .auth-orb {
-    position: absolute;
+    position: fixed; /* viewport-anchored: never contributes to page overflow */
     border-radius: 50%;
     filter: blur(70px);
     opacity: 0.55;

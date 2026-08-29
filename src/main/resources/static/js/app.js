@@ -34,6 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
     applySavedTheme();
     bindEvents();
     initScrollAssist();
+    initDialogWheelScroll();
     showTableSkeleton();
     initCommandPalette();
     refreshAll();
@@ -189,6 +190,51 @@ function bindEvents() {
             }
         }
     });
+}
+
+/* --------------------- Dialog wheel scrolling (pointer scroll) ----------- */
+
+/*
+ * Native wheel scrolling only reaches the nearest scrollable ancestor of the
+ * element under the pointer. Inside the component wizard, the header, footer
+ * and dimmed overlay margins are not ancestors of `.wizard-body`, so a wheel
+ * gesture over them did nothing. This forwards those events to the wizard's
+ * scroll container — anywhere on the dialog scrolls the form — while leaving
+ * native scrolling untouched for targets already inside a scrollable region.
+ */
+
+function initDialogWheelScroll() {
+    const dialog = els.componentWizard;
+    if (!dialog) {
+        return;
+    }
+    enableDialogWheelScroll(dialog, dialog.querySelector(".wizard-body"));
+}
+
+function enableDialogWheelScroll(dialog, scrollContainer) {
+    if (!scrollContainer) {
+        return;
+    }
+
+    dialog.addEventListener("wheel", (event) => {
+        // let the browser handle anything that already scrolls natively
+        if (event.ctrlKey || event.target.closest(".wizard-body, textarea, select")) {
+            return;
+        }
+
+        const max = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+        if (max <= 0) {
+            return;
+        }
+
+        // normalise line/page deltas (Firefox) to pixels
+        const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? scrollContainer.clientHeight : 1;
+        const next = clamp(scrollContainer.scrollTop + event.deltaY * unit, 0, max);
+        if (next !== scrollContainer.scrollTop) {
+            event.preventDefault();
+            scrollContainer.scrollTop = next;
+        }
+    }, { passive: false });
 }
 
 /* --------------------------- Scroll assist ------------------------------- */
