@@ -7,11 +7,24 @@
     <link rel="stylesheet" th:href="@{/css/main.css}">
 </head>
 <body class="auth-body">
+<div class="auth-orb orb-1" aria-hidden="true"></div>
+<div class="auth-orb orb-2" aria-hidden="true"></div>
+<div class="auth-orb orb-3" aria-hidden="true"></div>
 <div class="auth-shell">
     <div class="auth-brand">
-        <span class="eyebrow">Global Engineering Catalog</span>
-        <h1>Create your workspace access</h1>
-        <p>Set up an authenticated account to manage component records, run intelligent recommendations, and monitor global supply risk from a single dashboard.</p>
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true">⚛</span>
+            <div>
+                <span class="eyebrow"><span class="live-dot" aria-hidden="true"></span>Global engineering catalog</span>
+                <h1>Create your <span class="grad-text">workspace</span> access</h1>
+            </div>
+        </div>
+        <p>Set up an authenticated account to manage component records, run intelligent recommendations, and monitor global supply risk from a single, colorful dashboard.</p>
+        <ul class="feature-list compact">
+            <li><span class="f-icon" aria-hidden="true">🧩</span>Guided wizard form for new components</li>
+            <li><span class="f-icon" aria-hidden="true">🤝</span>BCrypt-hashed credentials, Spring Security sessions</li>
+            <li><span class="f-icon" aria-hidden="true">🕘</span>Every change tracked in the activity log</li>
+        </ul>
     </div>
 
     <div class="auth-card">
@@ -49,10 +62,10 @@
                 <small class="field-error" th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}"></small>
             </label>
 
-            <button type="submit" class="primary-btn">Create Account</button>
+            <button type="submit" class="primary-btn">Create Account →</button>
         </form>
 
-        <p class="auth-link">Already registered? <a th:href="@{/login}">Back to login</a></p>
+        <p class="auth-link">Already registered? <a th:href="@{/login}">Back to login →</a></p>
     </div>
 </div>
 </body>

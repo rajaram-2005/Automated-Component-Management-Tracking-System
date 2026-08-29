@@ -11,7 +11,9 @@ A Spring Boot web application for managing engineering components across **Elect
 - **Automated classification** of components using rule-based AI signals from specifications
 - **Recommendation engine** for related and high-availability parts
 - **Predictive analytics** for stockout risk and availability confidence
-- **Modern, responsive UI**: light/dark theme toggle, keyboard command palette (**⌘K**), catalog filters, CSV export, donut chart, animated counters, and loading skeletons
+- **New colorful UI** ("Aurora Industrial"): gradient glass panels, discipline color coding (ECE violet, EEE amber, Mechanical teal), animated gradient CTAs, KPI cards with tone-matched glows, and a live stock-risk meter
+- **Guided 4-step component form** (the new form): Identity → Classification (inline AI preview) → Inventory & Forecast (live risk meter) → Review, with per-step validation and one-click create/update against the REST API
+- **Modern, responsive UX**: light/dark theme toggle, keyboard command palette (**⌘K**), press **N** to launch the new component form, catalog filters, CSV export, donut chart, animated counters, and loading skeletons
 - **H2 database** (default, zero-setup) with an optional **PostgreSQL** production profile
 - **Actuator** health/info endpoints, graceful shutdown, and a GitHub Actions CI pipeline
 
@@ -64,11 +66,17 @@ src/main/java/com/arena/compoundmanagement
 ```text
 src/main/resources
 ├── static
-│   ├── css/main.css
-│   └── js/app.js
-├── templates     # dashboard, login, register
+│   ├── css/main.css      # "Aurora Industrial" design system (dark + light themes)
+│   └── js/app.js         # dashboard + 4-step wizard controller (consumes the REST API)
+├── templates     # dashboard (with wizard), login, register
 ├── application.properties      # default (H2)
 └── application-prod.properties # prod profile (PostgreSQL)
+```
+
+```text
+scripts/
+├── verify.sh      # one-shot build + test verification (needs JDK 17 + Maven)
+└── preview.mjs    # JVM-free UI preview with a mock of the full REST API (Node 18+)
 ```
 
 ## Run Locally
@@ -91,6 +99,17 @@ Then open:
 - Register: `http://localhost:8080/register`
 - H2 Console: `http://localhost:8080/h2-console`
 - Health: `http://localhost:8080/actuator/health`
+
+### Preview the UI without a JVM
+
+The redesigned frontend (colorful dashboard + 4-step wizard form) can be reviewed with a
+mock of the Spring Boot API — same routes and JSON shapes — served by Node alone:
+
+```bash
+node scripts/preview.mjs   # http://localhost:8080 (in-memory data, resets on restart)
+```
+
+This is a dev tool for UI iteration only; run `mvn spring-boot:run` for the real full-stack app.
 
 ### Run the tests
 
@@ -142,6 +161,7 @@ The build uses an isolated in-memory H2 for tests (via `src/test/resources/appli
 
 ```bash
 node --check src/main/resources/static/js/app.js          # JS syntax
+node --check scripts/preview.mjs                          # preview tool syntax
 ```
 
 A GitHub Actions workflow (build, test, package, Docker image on pushes/PRs to `master`/`main`) is also documented in [`docs/github-actions-ci.md`](docs/github-actions-ci.md). It is intentionally **not** shipped as a live `.github/workflows/ci.yml` because the automation token used to publish this branch lacks the GitHub **Workflows** permission; add the file with the contents from that doc (and a token with `workflows: write`) to enable it.

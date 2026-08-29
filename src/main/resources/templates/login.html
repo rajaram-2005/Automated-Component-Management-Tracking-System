@@ -7,24 +7,32 @@
     <link rel="stylesheet" th:href="@{/css/main.css}">
 </head>
 <body class="auth-body">
+<div class="auth-orb orb-1" aria-hidden="true"></div>
+<div class="auth-orb orb-2" aria-hidden="true"></div>
+<div class="auth-orb orb-3" aria-hidden="true"></div>
 <div class="auth-shell">
     <div class="auth-brand">
-        <span class="eyebrow">AI + ML Enabled Inventory Intelligence</span>
-        <h1>Compound Management System</h1>
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true">⚛</span>
+            <div>
+                <span class="eyebrow"><span class="live-dot" aria-hidden="true"></span>AI + ML inventory intelligence</span>
+                <h1>Compound <span class="grad-text">Management</span> System</h1>
+            </div>
+        </div>
         <p>Securely manage engineering components for EEE, ECE, and Mechanical domains with global sourcing analytics, NLP search, and predictive availability insights.</p>
         <ul class="feature-list compact">
-            <li>Natural-language component discovery</li>
-            <li>Automated component classification</li>
-            <li>Forecast-driven replenishment insights</li>
-            <li>Responsive dashboard for global teams</li>
+            <li><span class="f-icon" aria-hidden="true">🔍</span>Natural-language component discovery</li>
+            <li><span class="f-icon" aria-hidden="true">🪄</span>Automated component classification</li>
+            <li><span class="f-icon" aria-hidden="true">📈</span>Forecast-driven replenishment insights</li>
+            <li><span class="f-icon" aria-hidden="true">🧩</span>New guided 4-step component form</li>
         </ul>
     </div>
 
     <div class="auth-card">
-        <h2>Welcome back</h2>
+        <h2>Welcome <span class="grad-text">back</span></h2>
         <p class="muted">Sign in to access the engineering operations dashboard.</p>
 
-        <div class="alert success" th:if="${param.registered}">Registration successful. Please sign in.</div>
+        <div class="alert success" th:if="${param.registered}">🎉 Registration successful. Please sign in.</div>
         <div class="alert success" th:if="${param.logout}">You have been signed out.</div>
         <div class="alert danger" th:if="${param.error}">Invalid username or password.</div>
 
@@ -37,16 +45,16 @@
                 Password
                 <input type="password" name="password" placeholder="Enter your password" required>
             </label>
-            <button type="submit" class="primary-btn">Sign In</button>
+            <button type="submit" class="primary-btn">Sign In →</button>
         </form>
 
         <div class="demo-credentials">
             <strong>Demo accounts</strong>
-            <p><span>Admin:</span> admin / admin123</p>
-            <p><span>Engineer:</span> engineer / engineer123</p>
+            <p><span>Admin:</span> <code>admin / admin123</code></p>
+            <p><span>Engineer:</span> <code>engineer / engineer123</code></p>
         </div>
 
-        <p class="auth-link">New here? <a th:href="@{/register}">Create an engineer account</a></p>
+        <p class="auth-link">New here? <a th:href="@{/register}">Create an engineer account →</a></p>
     </div>
 </div>
 </body>
