@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI-enabled component management for EEE, ECE, and Mechanical engineering.">
     <title>Compound Management System</title>
     <link rel="stylesheet" th:href="@{/css/main.css}">
 </head>
@@ -15,6 +16,15 @@
             <p>Global component intelligence for Electrical & Electronics, Electronics & Communication, and Mechanical Engineering.</p>
         </div>
         <div class="topbar-actions">
+            <div class="topbar-tools">
+                <button id="themeToggle" class="ghost-btn" type="button" title="Toggle light / dark theme" aria-label="Toggle color theme">
+                    <span class="theme-icon" aria-hidden="true">🌙</span>
+                    <span class="theme-label">Theme</span>
+                </button>
+                <button id="commandOpenBtn" class="ghost-btn" type="button" title="Open command palette" aria-label="Open command palette">
+                    <span aria-hidden="true">⌘K</span>
+                </button>
+            </div>
             <div class="user-chip">Signed in as <strong th:text="${username}">engineer</strong></div>
             <form th:action="@{/logout}" method="post">
                 <button type="submit" class="ghost-btn">Logout</button>
@@ -35,17 +45,17 @@
         </article>
         <article class="hero-card stat-card">
             <span>Total Components</span>
-            <strong id="totalComponents">0</strong>
+            <strong id="totalComponents" data-count>0</strong>
             <small>Managed catalog entries</small>
         </article>
         <article class="hero-card stat-card">
             <span>Total Units</span>
-            <strong id="totalUnits">0</strong>
+            <strong id="totalUnits" data-count>0</strong>
             <small>Available inventory units</small>
         </article>
         <article class="hero-card stat-card">
             <span>Low Stock</span>
-            <strong id="lowStockComponents">0</strong>
+            <strong id="lowStockComponents" data-count>0</strong>
             <small>High-risk or critical items</small>
         </article>
         <article class="hero-card stat-card">
@@ -56,11 +66,12 @@
     </section>
 
     <section class="search-panel panel">
-        <div class="panel-header">
+        <div class="panel-header space-between">
             <div>
                 <h2>Natural Language Search</h2>
                 <p>Search in plain language: component names, discipline, availability intent, quantities, and sourcing regions.</p>
             </div>
+            <button id="commandInlineBtn" class="secondary-btn" type="button">Search with ⌘K</button>
         </div>
         <div class="search-row">
             <input id="searchQuery" type="text" placeholder="e.g., show low stock ECE communication modules from Asia or find mechanical bearings with high availability">
@@ -182,12 +193,50 @@
                         <h2>Managed Components</h2>
                         <p>CRUD-ready inventory for globally sourced EEE, ECE, and Mechanical parts.</p>
                     </div>
-                    <div class="legend">
-                        <span class="risk-pill low">Low</span>
-                        <span class="risk-pill moderate">Moderate</span>
-                        <span class="risk-pill high">High</span>
-                        <span class="risk-pill critical">Critical</span>
+                    <div class="header-actions">
+                        <div class="legend">
+                            <span class="risk-pill low">Low</span>
+                            <span class="risk-pill moderate">Moderate</span>
+                            <span class="risk-pill high">High</span>
+                            <span class="risk-pill critical">Critical</span>
+                        </div>
+                        <button id="exportBtn" class="secondary-btn" type="button">Export CSV</button>
                     </div>
+                </div>
+                <div class="catalog-toolbar">
+                    <label>
+                        Domain
+                        <select id="filterDomain">
+                            <option value="">All domains</option>
+                            <option value="EEE">EEE</option>
+                            <option value="ECE">ECE</option>
+                            <option value="MECHANICAL">Mechanical</option>
+                        </select>
+                    </label>
+                    <label>
+                        Region
+                        <select id="filterRegion">
+                            <option value="">All regions</option>
+                            <option value="Asia-Pacific">Asia-Pacific</option>
+                            <option value="Europe">Europe</option>
+                            <option value="North America">North America</option>
+                            <option value="Middle East">Middle East</option>
+                            <option value="Africa">Africa</option>
+                            <option value="South America">South America</option>
+                            <option value="Global">Global</option>
+                        </select>
+                    </label>
+                    <label>
+                        Stock risk
+                        <select id="filterRisk">
+                            <option value="">All risk levels</option>
+                            <option value="LOW">Low</option>
+                            <option value="MODERATE">Moderate</option>
+                            <option value="HIGH">High</option>
+                            <option value="CRITICAL">Critical</option>
+                        </select>
+                    </label>
+                    <span class="catalog-count" id="catalogCount"></span>
                 </div>
                 <div class="table-wrapper">
                     <table>
@@ -226,7 +275,12 @@
                             <p>Availability scoring estimates stockout risk using quantity, monthly demand, and supplier lead times.</p>
                         </div>
                     </div>
-                    <div class="distribution-grid">
+                    <div class="analytics-viz">
+                        <div class="donut-wrap">
+                            <h3>Domain Mix</h3>
+                            <canvas id="domainDonut" width="170" height="170" role="img" aria-label="Domain distribution donut chart"></canvas>
+                            <div id="donutLegend" class="donut-legend"></div>
+                        </div>
                         <div>
                             <h3>Domain Distribution</h3>
                             <div id="domainDistribution" class="distribution-list"></div>
@@ -248,11 +302,44 @@
                     </div>
                 </article>
             </div>
+
+            <article class="panel audit-panel">
+                <div class="panel-header space-between">
+                    <div>
+                        <h2>Activity Log</h2>
+                        <p>Recent create, update, and delete actions across the component catalog.</p>
+                    </div>
+                    <button id="auditRefreshBtn" class="ghost-btn" type="button">Refresh</button>
+                </div>
+                <div id="auditList" class="audit-list">
+                    <p class="muted">Loading recent activity…</p>
+                </div>
+            </article>
         </main>
     </section>
 </div>
 
-<div id="toast" class="toast hidden"></div>
+<div id="commandPalette" class="command-palette hidden" role="dialog" aria-modal="true" aria-label="Command palette">
+    <div id="commandOverlay" class="command-overlay"></div>
+    <div class="command-box">
+        <div class="command-input-wrap">
+            <span class="command-prefix" aria-hidden="true">⌘</span>
+            <input id="commandInput" type="text" placeholder="Search components, actions, and filters…" autocomplete="off">
+            <button id="commandCloseBtn" class="command-close" type="button" aria-label="Close">Esc</button>
+        </div>
+        <div id="commandResults" class="command-results"></div>
+        <div class="command-footer">
+            <span>↑↓ navigate</span><span>↵ open</span><span>⌫ filter</span>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast hidden">
+    <span class="toast-icon" aria-hidden="true"></span>
+    <span id="toastMessage" class="toast-message"></span>
+    <button id="toastClose" class="toast-close" type="button" aria-label="Dismiss">×</button>
+</div>
+
 <script th:src="@{/js/app.js}"></script>
 </body>
 </html>

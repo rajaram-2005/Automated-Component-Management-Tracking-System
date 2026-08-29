@@ -1,12 +1,13 @@
 package com.arena.compoundmanagement.service;
 
 import com.arena.compoundmanagement.dto.ComponentRequest;
+import com.arena.compoundmanagement.model.AuditLog;
 import com.arena.compoundmanagement.model.EngineeringComponent;
 import com.arena.compoundmanagement.model.EngineeringDomain;
 import com.arena.compoundmanagement.repository.ComponentRepository;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Sort;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -20,10 +21,14 @@ public class ComponentService {
 
     private final ComponentRepository componentRepository;
     private final ClassificationService classificationService;
+    private final AuditLogService auditLogService;
 
-    public ComponentService(ComponentRepository componentRepository, ClassificationService classificationService) {
+    public ComponentService(ComponentRepository componentRepository,
+                            ClassificationService classificationService,
+                            AuditLogService auditLogService) {
         this.componentRepository = componentRepository;
         this.classificationService = classificationService;
+        this.auditLogService = auditLogService;
     }
 
     public List<EngineeringComponent> findAll() {
@@ -38,19 +43,28 @@ public class ComponentService {
     public EngineeringComponent create(ComponentRequest request) {
         EngineeringComponent component = new EngineeringComponent();
         apply(component, request);
-        return componentRepository.save(component);
+        EngineeringComponent saved = componentRepository.save(component);
+        auditLogService.record(AuditLog.AuditAction.CREATE, "Component",
+                String.valueOf(saved.getId()), "Created component " + saved.getComponentCode() + " - " + saved.getName());
+        return saved;
     }
 
     public EngineeringComponent update(Long id, ComponentRequest request) {
         EngineeringComponent component = findById(id);
         apply(component, request);
-        return componentRepository.save(component);
+        EngineeringComponent saved = componentRepository.save(component);
+        auditLogService.record(AuditLog.AuditAction.UPDATE, "Component",
+                String.valueOf(saved.getId()), "Updated component " + saved.getComponentCode() + " - " + saved.getName());
+        return saved;
     }
 
     public void delete(Long id) {
         if (!componentRepository.existsById(id)) {
             throw new EntityNotFoundException("Component not found: " + id);
         }
+        EngineeringComponent existing = findById(id);
+        auditLogService.record(AuditLog.AuditAction.DELETE, "Component",
+                String.valueOf(id), "Deleted component " + existing.getComponentCode() + " - " + existing.getName());
         componentRepository.deleteById(id);
     }
 
